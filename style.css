@@ -1,0 +1,1892 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: #111318;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #fff;
+}
+
+#overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Camera as a small picture-in-picture: the function cards are shown to it,
+   the time map is the main view. */
+#webcam {
+  position: fixed;
+  right: var(--safe-right);
+  bottom: calc(var(--safe-bottom) + 44px);
+  width: 380px;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: #000;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: block;
+}
+.mirror #webcam {
+  transform: scaleX(-1);
+}
+
+#overlay {
+  pointer-events: none;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Start screen */
+#start {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+  background: #111;
+}
+
+#start h1 {
+  margin: 0;
+  font-size: 40px;
+}
+
+#start p {
+  margin: 0 0 12px;
+  color: #bbb;
+  max-width: 420px;
+}
+
+#start-button {
+  border: 0;
+  border-radius: 999px;
+  padding: 14px 28px;
+  font-size: 18px;
+  font-weight: 600;
+  background: #c6ff8a;
+  color: #111;
+}
+
+/* Top bar: preference pill (left) + camera controls (right).
+   Uses the safe-area insets so nothing hides under the iPhone notch. */
+:root {
+  --gap: 12px;
+  --safe-top: max(var(--gap), env(safe-area-inset-top));
+  --safe-right: max(var(--gap), env(safe-area-inset-right));
+  --safe-bottom: max(var(--gap), env(safe-area-inset-bottom));
+  --safe-left: max(var(--gap), env(safe-area-inset-left));
+  --tap: 44px; /* Apple's minimum comfortable tap size */
+}
+
+#topbar {
+  position: fixed;
+  top: var(--safe-top);
+  left: var(--safe-left);
+  right: var(--safe-right);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+#topbar > * {
+  pointer-events: auto;
+}
+
+#pref-button {
+  min-height: var(--tap);
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(198, 255, 138, 0.4);
+  background: rgba(0, 0, 0, 0.6);
+  color: #c6ff8a;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+#camera-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+#flip-button {
+  flex-shrink: 0;
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+}
+
+#camera-select {
+  min-width: 0;
+  max-width: 220px;
+  height: var(--tap);
+  padding: 0 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 14px;
+}
+
+/* Hint under the top bar */
+#hint {
+  position: fixed;
+  top: calc(var(--safe-top) + var(--tap) + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - var(--safe-left) - var(--safe-right));
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Route pop-up */
+#popup,
+#zone-panel {
+  position: fixed;
+  top: calc(var(--safe-top) + var(--tap) + 10px);
+  right: var(--safe-right);
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100vh - var(--safe-top) - var(--tap) - 10px - var(--safe-bottom));
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 18px 20px 14px;
+  border-radius: 18px;
+  background: rgba(20, 20, 20, 0.88);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transform: translateY(-12px) scale(0.97);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#popup.show,
+#zone-panel {
+  opacity: 1;
+  transform: none;
+}
+
+.popup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+#popup h2,
+#zone-panel h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.popup-buttons {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.popup-buttons button {
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+#popup-best {
+  margin: 14px 0 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(198, 255, 138, 0.15);
+  color: #c6ff8a;
+}
+
+.best-tag {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.8;
+}
+
+.best-mode {
+  font-size: 26px;
+  font-weight: 700;
+  margin: 2px 0;
+}
+
+.best-next {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(198, 255, 138, 0.25);
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.best-meta {
+  font-size: 15px;
+  color: #e8ffd3;
+}
+
+#popup-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 15px;
+}
+
+#popup-list li {
+  padding: 5px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#popup-list li.too-long {
+  color: #777;
+}
+
+#popup-source {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #888;
+}
+
+/* Phones in portrait (iPhone 12 Pro is 390px wide): the pop-up becomes a
+   sheet along the bottom, above the home indicator, so the codes in the
+   middle of the picture stay visible and the buttons are in thumb reach. */
+@media (max-width: 640px) {
+  #popup {
+    top: auto;
+    left: var(--safe-left);
+    right: var(--safe-right);
+    bottom: var(--safe-bottom);
+    width: auto;
+    max-height: 42vh;
+    padding: 12px 14px 8px;
+    transform: translateY(12px);
+  }
+
+  #popup h2 {
+    font-size: 18px;
+  }
+
+  #popup-best {
+    margin: 10px 0 6px;
+  }
+
+  #popup-source {
+    display: none; /* save space on small screens */
+  }
+
+  .best-mode {
+    font-size: 22px;
+  }
+
+  #pref-button {
+    font-size: 15px;
+    padding: 0 12px;
+  }
+
+  #camera-select {
+    max-width: 120px;
+  }
+
+  #hint {
+    font-size: 15px;
+  }
+}
+
+/* Phones turned sideways: not much height, so the pop-up sits on the right. */
+@media (max-height: 500px) and (orientation: landscape) {
+  #popup {
+    top: var(--safe-top);
+    bottom: var(--safe-bottom);
+    left: auto;
+    right: var(--safe-right);
+    width: min(340px, 45vw);
+    max-height: none;
+  }
+
+  body:has(#popup:not([hidden])) #topbar {
+    right: calc(var(--safe-right) + min(340px, 45vw) + 8px);
+  }
+}
+
+/* Small round icon buttons in the top bar */
+.icon-button {
+  flex-shrink: 0;
+  width: var(--tap);
+  height: var(--tap);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+}
+
+#popup-activity {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: #ffe08a;
+}
+
+#checkin-button {
+  margin-top: 10px;
+  width: 100%;
+  min-height: var(--tap);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 15px;
+}
+
+/* Zone panel: tabs per zone + list of places */
+#zone-panel {
+  --zone-color: #7be495;
+  border-top: 4px solid var(--zone-color);
+}
+
+#zp-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0 8px;
+}
+
+.zp-tab {
+  flex: 1;
+  min-height: var(--tap);
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--zone-color) 60%, transparent);
+  background: transparent;
+  color: var(--zone-color);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.zp-tab[aria-selected="true"] {
+  background: var(--zone-color);
+  color: #111;
+}
+
+#zp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.zp-caption {
+  font-size: 13px;
+  color: #aaa;
+  padding: 2px 2px 6px;
+}
+
+.zp-empty {
+  padding: 12px 2px;
+  color: #888;
+}
+
+.zp-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 10px 8px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent;
+  color: #fff;
+  text-align: left;
+  border-radius: 8px;
+}
+
+.zp-item:hover,
+.zp-item:focus-visible {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.zp-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.zp-tag {
+  margin-left: 8px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #999;
+}
+
+.zp-how {
+  font-size: 14px;
+  color: var(--zone-color);
+}
+
+.zp-activity {
+  font-size: 13px;
+  color: #ffe08a;
+}
+
+.zp-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.zp-foot button,
+.zp-foot a {
+  min-height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 14px;
+  text-decoration: none;
+}
+
+#zp-clear {
+  color: #ff9a9a;
+}
+
+/* Toast messages (import progress etc.) */
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 8px);
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: rgba(20, 20, 20, 0.92);
+  color: #fff;
+  font-size: 15px;
+  text-align: center;
+  z-index: 10;
+}
+
+@media (max-width: 640px) {
+  #zone-panel {
+    top: auto;
+    left: var(--safe-left);
+    right: var(--safe-right);
+    bottom: var(--safe-bottom);
+    width: auto;
+    max-height: 55vh;
+    padding: 12px 14px 10px;
+  }
+
+  #camera-select {
+    display: none;
+  }
+
+  #toast {
+    bottom: auto;
+    top: calc(var(--safe-top) + var(--tap) + 10px);
+  }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  #zone-panel {
+    top: var(--safe-top);
+    bottom: var(--safe-bottom);
+    left: auto;
+    right: var(--safe-right);
+    width: min(340px, 45vw);
+    max-height: none;
+  }
+
+  body:has(#zone-panel:not([hidden])) #topbar {
+    right: calc(var(--safe-right) + min(340px, 45vw) + 8px);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Time map                                                            */
+#map-wrap {
+  position: fixed;
+  top: calc(var(--safe-top) + var(--tap) + 8px);
+  left: var(--safe-left);
+  right: calc(var(--safe-right) + 400px);
+  bottom: var(--safe-bottom);
+}
+
+#timemap {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#timemap text {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.ring-label {
+  font-size: 19px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #111318;
+  stroke-width: 7px;
+}
+
+.compass,
+.region {
+  font-size: 22px;
+  fill: #8a8f9c;
+  font-weight: 600;
+}
+
+.home-dot {
+  fill: #ffb347;
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+.pin {
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.pin.dim {
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.pin-dot {
+  stroke: #111318;
+  stroke-width: 3;
+}
+
+.pin-icon {
+  font-size: 30px;
+}
+
+.pin-label {
+  font-size: 20px;
+  font-weight: 700;
+  fill: #fff;
+  paint-order: stroke;
+  stroke: #111318;
+  stroke-width: 6px;
+}
+
+.pin-time {
+  font-size: 17px;
+  fill: #c9ced8;
+  paint-order: stroke;
+  stroke: #111318;
+  stroke-width: 6px;
+}
+
+.pin.selected .pin-dot {
+  stroke: #fff;
+  stroke-width: 6;
+}
+
+.pin.selected .pin-label {
+  font-size: 26px;
+}
+
+.pin:focus-visible .pin-dot {
+  stroke: #fff;
+  stroke-width: 6;
+}
+
+.cursor {
+  fill: rgba(255, 255, 255, 0.12);
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-dasharray: 8 6;
+  pointer-events: none;
+}
+
+.cursor-dot {
+  fill: #fff;
+  pointer-events: none;
+}
+
+.topbar-group {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+#filter-button {
+  min-height: var(--tap);
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(122, 162, 255, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  color: #9fbaff;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Selected place card */
+#place-card {
+  --zone-color: #7be495;
+  position: fixed;
+  top: calc(var(--safe-top) + var(--tap) + 10px);
+  right: var(--safe-right);
+  width: 380px;
+  box-sizing: border-box;
+  max-height: calc(100vh - var(--safe-top) - var(--tap) - 330px);
+  overflow-y: auto;
+  padding: 16px 18px 14px;
+  border-radius: 18px;
+  border-top: 4px solid var(--zone-color);
+  background: rgba(24, 26, 32, 0.94);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+#place-card h2 {
+  margin: 4px 0 6px;
+  font-size: 22px;
+}
+
+.pc-zone {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--zone-color);
+}
+
+.pc-how {
+  font-size: 16px;
+  color: #e8ebf1;
+}
+
+.pc-next {
+  margin-top: 6px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.pc-act,
+.pc-acts {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #ffe08a;
+}
+
+.pc-acts {
+  padding-left: 18px;
+}
+
+.pc-acts li {
+  margin: 4px 0;
+}
+
+.pc-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pc-buttons button {
+  min-height: var(--tap);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+  font-size: 15px;
+}
+
+#footer-links {
+  position: fixed;
+  right: var(--safe-right);
+  bottom: var(--safe-bottom);
+  display: flex;
+  gap: 8px;
+}
+
+#footer-links a,
+#footer-links button {
+  min-height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.5);
+  color: #ccc;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+/* Laptop: map on the left, card / pop-up / camera in a column on the right */
+@media (min-width: 641px) {
+  #popup {
+    max-height: calc(100vh - var(--safe-top) - var(--tap) - 330px);
+  }
+}
+
+/* Phone portrait: map on top, card as a bottom sheet, small camera top-left */
+@media (max-width: 640px) {
+  #map-wrap {
+    right: var(--safe-right);
+    bottom: 38vh;
+  }
+
+  #webcam {
+    top: calc(var(--safe-top) + var(--tap) + 8px);
+    left: var(--safe-left);
+    right: auto;
+    bottom: auto;
+    width: 112px;
+  }
+
+  #place-card {
+    top: auto;
+    left: var(--safe-left);
+    right: var(--safe-right);
+    bottom: calc(var(--safe-bottom) + 40px);
+    width: auto;
+    max-height: 40vh;
+    padding: 12px 14px 10px;
+  }
+
+  #popup {
+    bottom: calc(var(--safe-bottom) + 40px);
+  }
+
+  #filter-button {
+    max-width: 130px;
+    font-size: 14px;
+  }
+
+  #pref-button {
+    padding: 0 14px;
+  }
+
+  #pref-button .btn-label {
+    display: none; /* icon only on phones; tap still switches */
+  }
+
+  #hint {
+    top: auto;
+    bottom: calc(38vh - 10px);
+  }
+}
+
+/* Phone landscape: map left, card right */
+@media (max-height: 500px) and (orientation: landscape) {
+  #map-wrap {
+    right: calc(var(--safe-right) + min(340px, 45vw) + 8px);
+    bottom: var(--safe-bottom);
+  }
+
+  #place-card {
+    top: var(--safe-top);
+    bottom: auto;
+    left: auto;
+    right: var(--safe-right);
+    width: min(340px, 45vw);
+    max-height: 60vh;
+  }
+
+  #webcam {
+    width: 150px;
+    bottom: calc(var(--safe-bottom) + 40px);
+    right: var(--safe-right);
+  }
+}
+
+/* ================================================================== */
+/* Visual theme: the camera dimmed behind everything, frosted-glass    */
+/* panels, and thin white lines for the zones. One accent: white.      */
+:root {
+  --glass: rgba(18, 20, 26, 0.42);
+  --glass-strong: rgba(18, 20, 26, 0.6);
+  --glass-line: rgba(255, 255, 255, 0.22);
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.62);
+  --blur: blur(18px) saturate(140%);
+}
+
+body {
+  background: #0d0f13;
+}
+
+/* Camera = soft, dark backdrop (cards still show up in it). */
+#webcam,
+#webcam[style] {
+  position: fixed;
+  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: cover;
+  border: 0;
+  border-radius: 0;
+  background: #0d0f13;
+  filter: brightness(0.42) saturate(0.6);
+  pointer-events: none;
+}
+
+@media (max-width: 640px), (max-height: 500px) and (orientation: landscape) {
+  #webcam {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* Map */
+.ring {
+  fill: rgba(255, 255, 255, 0.025);
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1.5;
+}
+
+.ring-label {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  fill: rgba(255, 255, 255, 0.75);
+  paint-order: stroke;
+  stroke: rgba(13, 15, 19, 0.9);
+  stroke-width: 6px;
+  stroke: transparent;
+}
+
+.compass {
+  font-size: 18px;
+  letter-spacing: 0.2em;
+  fill: rgba(255, 255, 255, 0.7);
+}
+
+.region {
+  font-size: 16px;
+  letter-spacing: 0.12em;
+  fill: rgba(255, 255, 255, 0.45);
+}
+
+.home-glow {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: rgba(255, 255, 255, 0.25);
+  stroke-width: 1;
+}
+
+.home-dot {
+  fill: rgba(255, 255, 255, 0.92);
+  stroke: none;
+}
+
+.pin-dot {
+  fill: rgba(255, 255, 255, 0.14);
+  stroke: rgba(255, 255, 255, 0.6);
+  stroke-width: 1.5;
+}
+
+.pin-label {
+  font-weight: 600;
+  fill: #fff;
+  stroke: rgba(10, 12, 16, 0.55);
+  stroke-width: 5px;
+}
+
+.pin-time {
+  fill: rgba(255, 255, 255, 0.7);
+  stroke: rgba(10, 12, 16, 0.55);
+  stroke-width: 5px;
+}
+
+.pin.selected .pin-dot {
+  fill: rgba(255, 255, 255, 0.9);
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.pin.selected .pin-label {
+  font-size: 24px;
+}
+
+.pin.dim {
+  opacity: 0.2;
+}
+
+.cursor {
+  fill: rgba(255, 255, 255, 0.08);
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 6;
+}
+
+/* Frosted-glass panels and buttons */
+#place-card,
+#popup,
+#toast,
+#hint {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-line);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+}
+
+#place-card {
+  border-top: 1px solid var(--glass-line);
+  border-radius: 22px;
+}
+
+#popup {
+  border-radius: 22px;
+}
+
+.pc-zone {
+  color: var(--muted);
+  letter-spacing: 0.16em;
+  font-weight: 600;
+}
+
+.pc-how,
+.pc-next {
+  color: var(--text);
+}
+
+.pc-act,
+.pc-acts,
+#popup-activity {
+  color: var(--muted);
+}
+
+#popup-best {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+}
+
+.best-tag {
+  color: var(--muted);
+  letter-spacing: 0.14em;
+}
+
+.best-meta {
+  color: var(--muted);
+}
+
+.best-next {
+  border-top-color: rgba(255, 255, 255, 0.15);
+}
+
+#pref-button,
+#filter-button,
+.icon-button,
+#flip-button,
+.pc-buttons button,
+.popup-buttons button,
+#checkin-button,
+#footer-links a,
+#footer-links button,
+#camera-select {
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-line);
+  color: var(--text);
+}
+
+#pref-button,
+#filter-button {
+  font-weight: 500;
+}
+
+.pc-buttons button:hover,
+.popup-buttons button:hover,
+#pref-button:hover,
+#filter-button:hover,
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+#footer-links a,
+#footer-links button {
+  color: var(--muted);
+}
+
+#start {
+  background: radial-gradient(circle at 50% 40%, #232731 0%, #0d0f13 70%);
+}
+
+#start-button {
+  background: #fff;
+  color: #111;
+}
+
+/* Monochrome icons; the picked place gets its colour back. */
+.pin .pin-icon {
+  filter: grayscale(1) brightness(1.4);
+  opacity: 0.9;
+}
+
+.pin.selected .pin-icon {
+  filter: none;
+  opacity: 1;
+}
+
+#topbar button,
+.pc-buttons button,
+.popup-buttons button,
+#footer-links {
+  filter: grayscale(1);
+}
+
+.pin-time,
+.home-dot + .pin-icon,
+.pc-how,
+.pc-next,
+#popup-best,
+#popup-list {
+  filter: grayscale(1);
+}
+
+/* ================================================================== */
+/* Planner board: nested frames over the camera (the sketch)          */
+#board {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#board text {
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.frame {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1.25;
+}
+
+.band-active {
+  fill: rgba(255, 255, 255, 0.07);
+  fill-rule: evenodd;
+}
+
+.home-box {
+  fill: rgba(255, 255, 255, 0.1);
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+.home-label {
+  cursor: pointer;
+}
+
+.home-title {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  fill: #fff;
+}
+
+.home-sub {
+  font-size: 13px;
+  fill: rgba(255, 255, 255, 0.65);
+}
+
+.zone-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  fill: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+
+.zone-label.on {
+  fill: #fff;
+}
+
+.loading {
+  font-size: 13px;
+  fill: rgba(255, 255, 255, 0.6);
+}
+
+.spot {
+  cursor: pointer;
+}
+
+.spot-dot {
+  fill: rgba(255, 255, 255, 0.16);
+  stroke: rgba(255, 255, 255, 0.8);
+  stroke-width: 1.25;
+}
+
+.spot-icon {
+  font-size: 13px;
+  fill: #fff;
+  filter: grayscale(1) brightness(1.6);
+}
+
+.spot.picked .spot-dot {
+  fill: #fff;
+  stroke: #fff;
+}
+
+.spot.picked .spot-icon {
+  fill: #111;
+  font-weight: 700;
+  filter: none;
+}
+
+.spot.late {
+  opacity: 0.35;
+}
+
+.spot:focus-visible .spot-dot,
+.spot:hover .spot-dot {
+  stroke-width: 2.5;
+}
+
+.spot-name {
+  font-size: 13px;
+  font-weight: 600;
+  fill: #fff;
+  paint-order: stroke;
+  stroke: rgba(10, 12, 16, 0.6);
+  stroke-width: 4px;
+}
+
+.spot-meta {
+  font-size: 11px;
+  fill: rgba(255, 255, 255, 0.65);
+  paint-order: stroke;
+  stroke: rgba(10, 12, 16, 0.6);
+  stroke-width: 4px;
+}
+
+.leg {
+  stroke: #fff;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.leg.ghost {
+  stroke-dasharray: 5 7;
+  opacity: 0.55;
+}
+
+.leg-pill {
+  fill: rgba(14, 16, 21, 0.75);
+  stroke: rgba(255, 255, 255, 0.35);
+}
+
+.leg-text {
+  font-size: 12px;
+  fill: #fff;
+  filter: grayscale(1) brightness(1.6);
+}
+
+/* "Home by" picker */
+#deadline {
+  min-height: var(--tap);
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-line);
+  background: rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+#deadline option {
+  color: #111;
+}
+
+/* Plan panel */
+#plan {
+  position: fixed;
+  top: 72px;
+  right: var(--safe-right);
+  bottom: var(--safe-bottom);
+  width: 352px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-line);
+  color: #fff;
+  font-size: 14px;
+}
+
+#footer-links {
+  display: none;
+}
+
+.pl-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pl-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.pl-left {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.pl-empty,
+.pl-note,
+.pl-muted {
+  color: var(--muted);
+}
+
+.pl-note {
+  font-size: 12px;
+  margin: 10px 0 0;
+}
+
+.pl-suggest {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.pl-timeline {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.pl-row {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.pl-row em {
+  font-style: normal;
+  color: var(--muted);
+}
+
+.pl-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.pl-leg {
+  margin-left: 78px;
+  padding: 2px 0 2px 10px;
+  border-left: 1px dashed rgba(255, 255, 255, 0.35);
+  color: var(--muted);
+  font-size: 12px;
+  filter: grayscale(1);
+}
+
+.pl-status {
+  margin-top: 10px;
+  font-weight: 600;
+}
+
+.pl-status.late {
+  color: #ffb4a8;
+}
+
+#plan button {
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-line);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 14px;
+}
+
+#plan button:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+#plan .pl-x {
+  min-height: 32px;
+  width: 32px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.pl-better {
+  margin-top: 10px;
+  width: 100%;
+  text-align: left;
+}
+
+.pl-buttons {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Narrower laptop / tablet: plan floats bottom-right */
+@media (max-width: 999px) {
+  #plan {
+    top: auto;
+    max-height: 46vh;
+    width: min(352px, calc(100vw - 28px));
+  }
+}
+
+/* Phone: board on top, plan as a bottom sheet */
+@media (max-width: 640px) {
+  #plan {
+    left: var(--safe-left);
+    right: var(--safe-right);
+    width: auto;
+    height: calc(34vh - 10px);
+    max-height: none;
+    padding: 12px 14px;
+  }
+
+  .pl-left {
+    font-size: 18px;
+  }
+
+  #deadline {
+    font-size: 14px;
+    padding: 0 10px;
+  }
+}
+
+/* ================================================================== */
+/* Trip planner (four place cards)                                    */
+.spot.quiet {
+  opacity: 0.45;
+}
+
+.spot-icon.big {
+  font-size: 20px;
+}
+
+.spot-name.small {
+  font-size: 12px;
+}
+
+.leg.faint {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1;
+}
+
+.pl-title {
+  margin: 4px 0 8px;
+  font-size: 22px;
+}
+
+.dest-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+#plan .dest-list button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 48px;
+  font-size: 16px;
+  text-align: left;
+}
+
+.dest-list button span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.steps {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.st {
+  display: grid;
+  grid-template-columns: 66px 1fr;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.st .t {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+
+.st em {
+  font-style: normal;
+  color: var(--muted);
+}
+
+.st.walk {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.st.place {
+  font-size: 15px;
+}
+
+.ask {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-size: 15px;
+}
+
+.ask-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.food-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+#plan .food-head {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.fn {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.fm {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.food.open .food-head {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.food-body {
+  display: grid;
+  gap: 4px;
+  padding: 8px 12px 4px;
+  font-size: 14px;
+}
+
+.food-body .src {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+#plan .eat {
+  margin-top: 6px;
+  background: #fff;
+  color: #111;
+  font-weight: 600;
+}
+
+#plan .skip {
+  margin-top: 10px;
+  width: 100%;
+}
+
+.leg.back {
+  stroke-dasharray: 2 6;
+  stroke-width: 2.5;
+}
+
+/* Which cards the camera sees right now */
+#seen {
+  position: fixed;
+  top: calc(var(--safe-top) + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: calc(100vw - 160px);
+  pointer-events: none;
+}
+
+.chip {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.chip.empty {
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--blur);
+  backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-line);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  #seen {
+    top: calc(var(--safe-top) + var(--tap) + 12px);
+    max-width: calc(100vw - 24px);
+  }
+
+  .chip {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+}
+
+/* Card labels sit above everything (they're drawn only where a card is). */
+#overlay {
+  z-index: 5;
+  pointer-events: none;
+}
+
+#start {
+  z-index: 10;
+}
+
+/* ---------------------------------------------------------------------------
+   Tap the chosen place → restaurants spread out; floating restaurant card;
+   hand-control fingertip. */
+
+.tap-hint {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 2;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: tap-hint 1.6s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes tap-hint {
+  from { opacity: 0.9; transform: scale(0.8); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+
+.spot.food .pop {
+  animation: spread-out 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes spread-out {
+  from { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.spot.food .spot-meta { font-size: 11px; }
+
+.spot.hand-hover .spot-dot {
+  stroke-width: 3;
+  fill: rgba(255, 255, 255, 0.35);
+}
+button.hand-hover {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+#food-card {
+  position: fixed;
+  z-index: 8;
+  width: min(300px, calc(100vw - 16px));
+  padding: 14px 16px 16px;
+  border-radius: 18px;
+  background: rgba(30, 30, 30, 0.72);
+  border: 1px solid var(--glass-line, rgba(255, 255, 255, 0.35));
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  color: #fff;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  animation: card-in 0.25s ease-out;
+}
+#food-card[hidden] { display: none; }
+@keyframes card-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: none; }
+}
+#food-card .fc-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+#food-card .fc-name { font-size: 19px; font-weight: 700; padding-right: 40px; }
+#food-card .fc-cuisine { margin-top: 2px; color: var(--muted, rgba(255, 255, 255, 0.7)); font-size: 14px; }
+#food-card dl {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 7px 6px;
+  margin: 12px 0 14px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+#food-card dt, #food-card dd { margin: 0; }
+#food-card em { color: var(--muted, rgba(255, 255, 255, 0.7)); font-style: normal; font-size: 12px; }
+#food-card .fc-eat {
+  width: 100%;
+  min-height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #111;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Fingertip cursor: the ring fills while you hold still, flashes on tap. */
+#finger {
+  --p: 0;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 20;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+#finger[hidden] { display: none; }
+#finger::before,
+.finger-ring {
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+#finger::before {
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
+}
+.finger-ring {
+  width: 46px;
+  height: 46px;
+  background: conic-gradient(#fff calc(var(--p) * 360deg), rgba(255, 255, 255, 0.18) 0);
+  -webkit-mask: radial-gradient(circle, transparent 18px, #000 19px);
+  mask: radial-gradient(circle, transparent 18px, #000 19px);
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+#finger.over .finger-ring { opacity: 1; }
+#finger.pinch::before { transform: translate(-50%, -50%) scale(1.6); }
+#finger.tapped .finger-ring { animation: finger-tap 0.4s ease-out; }
+@keyframes finger-tap {
+  from { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  to { transform: translate(-50%, -50%) scale(1.8); opacity: 0; }
+}
+
+#hand-button.off { opacity: 0.45; }
+.home-label.hand-hover .home-title { fill: #fff; text-decoration: underline; }
+.ask-tip { margin-top: 10px; font-size: 13px; color: var(--muted, rgba(255, 255, 255, 0.7)); }
+
+#toast { pointer-events: none; }
+
+/* Places to eat: a calm column of glass rows beside the chosen place. */
+#food-stack {
+  position: fixed;
+  z-index: 7;
+  width: 248px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#food-stack[hidden] { display: none; }
+#food-stack .fs-head {
+  padding: 0 4px 2px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+#food-stack .fs-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-height: 48px;
+  padding: 7px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(22, 22, 22, 0.55);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+#food-stack .fs-item:hover,
+#food-stack .fs-item.hand-hover {
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(40, 40, 40, 0.7);
+  outline: none;
+}
+#food-stack .fs-item.on {
+  background: #fff;
+  color: #111;
+  border-color: #fff;
+}
+#food-stack .fs-name {
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 15px;
+  font-weight: 650;
+}
+#food-stack .fs-meta { font-size: 12px; opacity: 0.72; }
+
+/* Slide out from the place, one row after another — no bounce. */
+#food-stack.in .fs-item,
+#food-stack.in .fs-head {
+  animation: fs-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
+#food-stack.from-right { --from: -18px; }
+#food-stack.from-left { --from: 18px; }
+@keyframes fs-in {
+  from { opacity: 0; transform: translateX(var(--from)); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 640px) {
+  #food-stack { width: 176px; gap: 4px; }
+  #food-stack .fs-item { min-height: 44px; padding: 5px 11px; }
+  #food-stack .fs-name { font-size: 13px; }
+  #food-stack .fs-meta { font-size: 11px; }
+}
+
+#board .frame, #board .zone-label, #board .home-box, #board .home-label,
+#board .leg, #board .leg-pill, #board .leg-text, #board .spot.dest:not(.picked) {
+  transition: opacity 0.35s ease;
+}
+#board.dim .frame, #board.dim .zone-label, #board.dim .home-box, #board.dim .home-label,
+#board.dim .leg:not(.faint), #board.dim .leg-pill, #board.dim .leg-text,
+#board.dim .spot.dest:not(.picked) {
+  opacity: 0.22;
+}
+@media (max-width: 640px) {
+  #food-stack .fs-item { background: rgba(22, 22, 22, 0.82); }
+}
+
+/* Keep a plan: save / image / calendar, and the saved list. */
+.keep-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 14px 0 8px;
+}
+.keep-buttons button,
+.saved-plans .sp-open,
+.saved-plans .sp-del {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+.keep-buttons button { white-space: nowrap; font-size: 13px; padding: 0 6px; }
+.keep-buttons button.on { background: #fff; color: #111; border-color: #fff; }
+.saved-plans { list-style: none; margin: 6px 0 12px; padding: 0; display: grid; gap: 6px; }
+.saved-plans li { display: flex; gap: 6px; }
+.saved-plans .sp-open {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  text-align: left;
+}
+.saved-plans .sp-open span { font-size: 12px; opacity: 0.6; white-space: nowrap; }
+.saved-plans .sp-del { width: 44px; flex: none; }

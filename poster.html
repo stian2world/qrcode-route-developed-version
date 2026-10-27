@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Routes — Print Codes</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f4f1ea;
+      color: #111;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    h1 { margin: 0; font-size: 26px; }
+    h2 { margin: 28px 0 10px; font-size: 18px; }
+    p { margin: 6px 0 0; color: #555; max-width: 60ch; }
+    button {
+      min-height: 44px; padding: 0 18px; border-radius: 999px; border: 0;
+      background: #111; color: #fff; font-size: 16px; cursor: pointer;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 7.5cm);
+      justify-content: center;
+      margin-top: 24px;
+      gap: 12px;
+    }
+    .card {
+      background: #fff;
+      border: 2px solid var(--c, #ddd);
+      border-radius: 14px;
+      padding: 10px;
+      text-align: center;
+      break-inside: avoid;
+    }
+    .card svg { width: 6cm; height: 6cm; display: block; margin: 0 auto; }
+    .name { margin-top: 6px; font-size: 20px; font-weight: 700; }
+    @page { size: A4; margin: 1.5cm; }
+    .meta { font-size: 12px; color: #666; }
+    @media print {
+      body { background: #fff; padding: 0; }
+      header button, p.screen { display: none; }
+      .card { border-width: 1.5px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>QR Routes — cards</h1>
+      <p class="screen">Print this page (A4) and cut out the 5 cards (Home + four places). Keep the white margin around each code — the camera needs it.</p>
+    </div>
+    <button type="button" onclick="window.print()">🖨️ Print</button>
+  </header>
+
+  <div class="grid" id="cards"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+  <script src="config.js"></script>
+  <script src="landmarks.js"></script>
+  <script>
+    function card(parent, text, name, meta, color) {
+      const qr = qrcode(0, 'M');
+      qr.addData(text);
+      qr.make();
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.style.setProperty('--c', color || '#ddd');
+      div.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
+      const n = document.createElement('div');
+      n.className = 'name';
+      n.textContent = name;
+      const m = document.createElement('div');
+      m.className = 'meta';
+      m.textContent = meta;
+      div.append(n, m);
+      parent.append(div);
+    }
+
+    // One card per function (QR_ROLES in config.js).
+    const INFO = {
+      home: ['🏠 Home', 'Head home now', '#222'],
+    };
+    for (const d of DESTINATIONS) {
+      INFO[`dest:${d.id}`] = [`${d.icon} ${d.label}`, 'Go there', '#555'];
+    }
+    const cards = document.getElementById('cards');
+    const printed = new Set(); // one card per function
+    for (const [text, role] of Object.entries(QR_ROLES)) {
+      if (printed.has(role) || role === 'home') continue;
+      printed.add(role);
+      const [name, meta, color] = INFO[role] || [text, '', '#ddd'];
+      card(cards, text, name, meta, color);
+    }
+  </script>
+</body>
+</html>

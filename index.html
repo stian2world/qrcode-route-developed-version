@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>QR Routes</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <video id="webcam" autoplay playsinline muted></video>
+  <svg id="board" aria-label="Zones around home, with places and your plan"></svg>
+
+  <header id="topbar">
+    <div class="topbar-group">
+      <button id="pref-button" type="button" hidden>✨</button>
+    </div>
+    <div id="camera-controls">
+      <select id="camera-select" aria-label="Camera" hidden></select>
+      <button id="import-button" class="icon-button" type="button" aria-label="Import Google Maps places" title="Import Google Maps">⬇️</button>
+      <button id="hand-button" class="icon-button" type="button" aria-label="Hand control on/off" title="Hand control" aria-pressed="true">✋</button>
+      <button id="flip-button" type="button" aria-label="Switch front / back camera" title="Switch camera" hidden>🔄</button>
+    </div>
+  </header>
+  <p id="hint" role="status" hidden></p>
+  <div id="food-stack" hidden></div>
+  <div id="food-card" hidden></div>
+  <div id="finger" hidden><span class="finger-ring"></span></div>
+  <div id="seen" role="status" aria-live="polite"></div>
+
+  <aside id="plan" aria-live="polite"></aside>
+
+  <aside id="popup" role="dialog" aria-live="polite" aria-labelledby="popup-title" hidden>
+    <div class="popup-head">
+      <h2 id="popup-title"></h2>
+      <div class="popup-buttons">
+        <button id="speak-button" type="button" aria-label="Read it again">▶︎</button>
+        <button id="mute-button" type="button" aria-label="Mute voice">🔊</button>
+        <button id="close-button" type="button" aria-label="Close">✕</button>
+      </div>
+    </div>
+    <div id="popup-best"></div>
+    <ul id="popup-list"></ul>
+    <p id="popup-activity" hidden></p>
+    <button id="checkin-button" type="button">✓ I went here today</button>
+    <p id="popup-source"></p>
+  </aside>
+
+  <nav id="footer-links">
+    <a href="poster.html" target="_blank" rel="noopener">🖨️ Print cards</a>
+    <button id="clear-import-button" type="button">Remove imported</button>
+  </nav>
+
+  <input id="import-input" type="file" accept=".zip,.json,.geojson,.csv" multiple hidden>
+  <div id="toast" role="status" hidden></div>
+
+  <canvas id="overlay"></canvas>
+
+  <div id="start">
+    <h1>QR Routes</h1>
+    <p>Hold up a place card — Times Square, 23rd St, MoMA, The Met or Flushing — to see how to get there from home right now, pick somewhere to eat, and get the trains home.</p>
+    <button id="start-button" type="button">Start camera &amp; voice 🔊</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script src="config.js"></script>
+  <script src="landmarks.js"></script>
+  <script src="script.js"></script>
+  <script src="zones.js"></script>
+  <script src="subway.js"></script>
+  <script src="planner.js"></script>
+  <script src="plans.js"></script>
+  <script src="hands.js"></script>
+</body>
+</html>
