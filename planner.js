@@ -370,11 +370,12 @@ function mapHint(visible, connection) {
 
 // Chips at the top: which cards the camera sees right now.
 function renderSeenBar() {
+  const area = typeof areaChipHtml === 'function' ? areaChipHtml() : '';
   if (cardsInView.size === 0) {
-    seenBar.innerHTML = '<span class="chip empty">📷 No card in view — hold one up to the camera</span>';
+    seenBar.innerHTML = `${area}<span class="chip empty">📷 No card in ${area.includes('set') ? 'the area' : 'view'} — ${area.includes('set') ? 'put one inside the corners' : 'hold one up to the camera'}</span>`;
     return;
   }
-  seenBar.innerHTML = [...cardsInView].map((r) => {
+  seenBar.innerHTML = area + [...cardsInView].map((r) => {
     const f = FUNCTION_INFO[r];
     return `<span class="chip">${f.icon} ${escapeHtml(f.label)}</span>`;
   }).join('');

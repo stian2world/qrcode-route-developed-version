@@ -288,6 +288,7 @@ function tick() {
         lastSeen: now,
       });
     }
+    if (typeof updatePlayArea === 'function') updatePlayArea(now);
     const visible = visibleByRole(now);
 
     handlePreference(visible);
@@ -304,6 +305,10 @@ function tick() {
     if (connection && !connection.manual) {
       drawConnection(connection);
     }
+    if (typeof drawPlayArea === 'function') {
+      drawPlayArea();
+      drawOutsideCards();
+    }
     drawPlaceTags(visible);
     updateHud(visible, connection, route);
     updatePopup(connection, route, now);
@@ -317,11 +322,16 @@ function tick() {
 // recently. x is mirrored to match the picture, so screen-left is your left.
 function visibleByRole(now) {
   const visible = new Map();
+  const outside = typeof outsideCards !== 'undefined' ? outsideCards : null;
+  outside?.clear();
   for (const [data, entry] of seen) {
     const role = QR_ROLES[qrKey(data)];
     if (role && now - entry.lastSeen < VISIBLE_GRACE_MS) {
       const p = toScreen(entry.center);
-      visible.set(role, { x: p.x, y: p.y, size: entry.size * view.scale });
+      const point = { x: p.x, y: p.y, size: entry.size * view.scale };
+      // With corner markers on the table, only cards inside the area count.
+      if (outside && (playAreaWarmingUp() || !insidePlayArea(entry.center))) outside.set(role, point);
+      else visible.set(role, point);
     }
   }
   return visible;

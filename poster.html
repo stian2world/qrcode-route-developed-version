@@ -40,6 +40,8 @@
     .name { margin-top: 6px; font-size: 20px; font-weight: 700; }
     @page { size: A4; margin: 1.5cm; }
     .meta { font-size: 12px; color: #666; }
+    .corners { break-before: page; margin-top: 32px; }
+    .card.marker svg { width: 5.5cm; height: 5.5cm; }
     @media print {
       body { background: #fff; padding: 0; }
       header button, p.screen { display: none; }
@@ -58,7 +60,16 @@
 
   <div class="grid" id="cards"></div>
 
+  <section class="corners">
+    <h2>Corner markers (optional)</h2>
+    <p class="screen">Cut these out and tape them to the four corners of your table or a big sheet, with the numbers the right way up. When the camera sees them, only cards placed <b>inside</b> the corners count.</p>
+    <div class="grid" id="markers"></div>
+  </section>
+
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/cv.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/aruco.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/dictionaries/aruco_4x4_1000.js"></script>
   <script src="config.js"></script>
   <script src="landmarks.js"></script>
   <script>
@@ -94,6 +105,25 @@
       printed.add(role);
       const [name, meta, color] = INFO[role] || [text, '', '#ddd'];
       card(cards, text, name, meta, color);
+    }
+
+    // ArUco corner markers 0–3 (OpenCV DICT_4X4).
+    try {
+      const dict = new AR.Dictionary('ARUCO_4X4_1000');
+      const where = ['↖ Top-left', '↗ Top-right', '↘ Bottom-right', '↙ Bottom-left'];
+      const box = document.getElementById('markers');
+      where.forEach((label, id) => {
+        const div = document.createElement('div');
+        div.className = 'card marker';
+        div.innerHTML = dict.generateSVG(id).replace('<svg ', '<svg shape-rendering="crispEdges" ');
+        const n = document.createElement('div');
+        n.className = 'name';
+        n.textContent = `${label}  ·  ${id}`;
+        div.append(n);
+        box.append(div);
+      });
+    } catch (error) {
+      document.querySelector('.corners').hidden = true;
     }
   </script>
 </body>
