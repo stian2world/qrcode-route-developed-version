@@ -436,10 +436,12 @@ function render() {
   g.rects.forEach((r, k) => {
     board.append(el('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: k === 4 ? 14 : 4, class: k === 4 ? 'home-box' : 'frame' }));
   });
+  const mk = drawCornerMarkers(g.rects[0], g.phone);
   ZONES.forEach((z, idx) => {
     const r = g.rects[3 - idx];
     const prev = idx ? ZONES[idx - 1].max : 0;
-    board.append(el('text', { x: r.x + 10, y: r.y + 16, class: 'zone-label' },
+    // Zone 4's label sits next to the top-left marker.
+    board.append(el('text', { x: r.x + 10 + (idx === 3 ? mk : 0), y: r.y + 16, class: 'zone-label' },
       `ZONE ${idx + 1} · ${z.max === Infinity ? `${prev}+` : `≤${z.max}`} MIN`));
   });
 
@@ -566,6 +568,34 @@ function render() {
   renderPanel();
   renderFoodStack(stackPoint);
   renderFoodCard();
+}
+
+// ArUco markers (OpenCV DICT_4X4, ids 0–3) in the four corners of the
+// Zone 4 frame: 0 top-left, 1 top-right, 2 bottom-right, 3 bottom-left.
+// Another camera or program can use them to find this screen. The bits
+// are the marker's 4×4 inner cells, row by row (1 = white).
+const SCREEN_MARKERS = ['1011010100110010', '0000111110011010', '0011001100101101', '1001100101000110'];
+
+function drawCornerMarkers(r, phone) {
+  const cell = Math.round(Math.max(phone ? 6 : 7, Math.min(11, Math.min(r.w, r.h) * 0.011)));
+  const size = cell * 8; // 1 white margin + 6 marker cells + 1 white margin
+  const inset = 6;
+  const spots = [
+    [r.x + inset, r.y + inset],
+    [r.x + r.w - inset - size, r.y + inset],
+    [r.x + r.w - inset - size, r.y + r.h - inset - size],
+    [r.x + inset, r.y + r.h - inset - size],
+  ];
+  spots.forEach(([x, y], id) => {
+    const grp = el('g', { class: 'aruco', transform: `translate(${x} ${y})`, 'shape-rendering': 'crispEdges' });
+    grp.append(el('rect', { width: size, height: size, fill: '#fff' }));
+    grp.append(el('rect', { x: cell, y: cell, width: cell * 6, height: cell * 6, fill: '#000' }));
+    [...SCREEN_MARKERS[id]].forEach((bit, k) => {
+      if (bit === '1') grp.append(el('rect', { x: cell * (2 + (k % 4)), y: cell * (2 + Math.floor(k / 4)), width: cell, height: cell, fill: '#fff' }));
+    });
+    board.append(grp);
+  });
+  return size + 8;
 }
 
 function edgeOf(r, c, p) {

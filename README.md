@@ -73,6 +73,7 @@ npx netlify-cli deploy --prod --dir=.
 - `zones.js` — trips from home, Google Maps import, check-ins
 - `planner.js` — zone frames, the five cards, trip + meal + way home
 - `plans.js` — keep a plan: ⭐ save (reopen later), 🖼 image, 📅 calendar (.ics)
+- Screen corner markers: the Zone 4 frame shows ArUco markers 0–3 (DICT_4X4) in its corners so another camera / program can locate the screen (`drawCornerMarkers` in planner.js)
 - `corners.js` — optional play area: four ArUco markers (DICT_4X4, ids 0–3, printed on page 2 of poster.html) at the corners of the table; only cards inside count
 - `hands.js` — hand control: fingertip pointer, pinch / hold-still to tap (MediaPipe)
 - `subway.js` — subway departures for the four trips (MTA GTFS)
