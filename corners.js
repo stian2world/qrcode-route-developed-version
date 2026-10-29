@@ -10,8 +10,8 @@ const AREA = {
   dictionary: 'ARUCO_4X4_1000', // OpenCV's DICT_4X4: big squares, easy to spot
   ids: [0, 1, 2, 3], // top-left, top-right, bottom-right, bottom-left
   labels: ['top-left', 'top-right', 'bottom-right', 'bottom-left'],
-  everyFrames: 5, // look for markers about 6 times a second
-  scanWidth: 800, // px; markers are big, no need for full resolution
+  everyFrames: 6, // look for markers a few times a second
+  scanWidth: 640, // px; markers are big, no need for full resolution
   rememberMs: 6000, // a hand covering a marker for a moment is fine
   lib: 'https://cdn.jsdelivr.net/npm/js-aruco2@2.0.0/src/',
 };
@@ -47,7 +47,12 @@ let arScans = 0;
 
 // Called every frame from script.js (before cards are sorted in/out).
 function updatePlayArea(now) {
-  if (arDetector && video.videoWidth && ++arFrame % AREA.everyFrames === 0) {
+  if (!areaStartedAt) areaStartedAt = performance.now();
+  // No markers seen at all for a while: look much less often (saves time
+  // for reading the cards).
+  const every = arScans < 3 ? 1 // right at the start: look straight away
+    : Object.keys(arSeen).length || arScans < 20 ? AREA.everyFrames : AREA.everyFrames * 5;
+  if (arDetector && video.videoWidth && ++arFrame % every === 0) {
     const scale = Math.min(1, AREA.scanWidth / video.videoWidth);
     if (!arCanvas) {
       arCanvas = document.createElement('canvas');
@@ -98,8 +103,12 @@ function updatePlayArea(now) {
 
 // Right after the camera starts, wait a moment for the corners before
 // letting cards count — otherwise a card outside the area could fire first.
+let areaStartedAt = 0;
 function playAreaWarmingUp() {
-  return arLoading || (arDetector && arScans < 8);
+  // Never hold cards back for more than ~1.5 s (e.g. if the marker
+  // library is slow to download or can't load at all).
+  if (!areaStartedAt || performance.now() - areaStartedAt > 1500) return false;
+  return arLoading || (arDetector && arScans < 3);
 }
 
 function insidePlayArea(p) {

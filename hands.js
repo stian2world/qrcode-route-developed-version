@@ -8,7 +8,7 @@ const HANDS = {
   model: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
   dwellMs: 550, // hold the fingertip on a button this long to tap it
   pinchRatio: 0.32, // thumb–index gap / hand size below this = pinch
-  everyMs: 33, // run the hand model at most ~30 times a second
+  everyMs: 50, // run the hand model at most ~20 times a second (leaves time for QR)
   // 'CPU' (WebAssembly) is steadier than 'GPU': the GPU version shares the
   // graphics card with the blurred glass panels and could crash the page
   // to a white screen, after which hand tracking stopped.

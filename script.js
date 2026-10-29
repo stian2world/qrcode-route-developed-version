@@ -1054,6 +1054,7 @@ let scanStep = TILE_STEP;
 let sweepTiles = [];
 let frameCount = 0;
 let tileBuffer = new Uint8ClampedArray(0);
+let sweepCursor = 0;
 
 function setUpScanner(videoWidth, videoHeight) {
   scanScale = Math.min(1, SCAN_MAX_WIDTH / Math.max(videoWidth, videoHeight));
@@ -1087,48 +1088,136 @@ function setUpScanner(videoWidth, videoHeight) {
 
 // Returns detections in video-pixel coordinates (not mirrored), each with
 // `raw` = its centre in sample coordinates for next frame's tracking.
+// Fast path: the browser's own QR reader (BarcodeDetector — Chrome on Mac
+// and Android, Edge, …). It reads the whole frame natively in a few ms, so
+// cards are picked up almost instantly at any size. It runs in the
+// background; each frame uses its latest answer. Other browsers fall back
+// to jsQR below.
+let nativeQR = null; // BarcodeDetector, once we know it reads QR codes
+let nativeBusy = false;
+let nativeResult = null; // { t, list }
+let nativeFails = 0;
+(async () => {
+  try {
+    if (!('BarcodeDetector' in window)) return;
+    const formats = await BarcodeDetector.getSupportedFormats();
+    if (formats.includes('qr_code')) nativeQR = new BarcodeDetector({ formats: ['qr_code'] });
+  } catch (error) { /* not available */ }
+})();
+
+function runNativeQR(now) {
+  if (nativeBusy) return;
+  nativeBusy = true;
+  nativeQR.detect(video).then((codes) => {
+    nativeResult = { t: now, list: codes };
+    nativeFails = 0;
+  }).catch(() => {
+    if (++nativeFails > 20) nativeQR = null; // keeps failing: use jsQR
+  }).finally(() => {
+    nativeBusy = false;
+  });
+}
+
+function nativeDetections() {
+  return nativeResult.list
+    .filter((c) => c.cornerPoints && c.cornerPoints.length === 4)
+    .map((c) => {
+      const [tl, tr, br, bl] = c.cornerPoints;
+      const location = { topLeftCorner: tl, topRightCorner: tr, bottomRightCorner: br, bottomLeftCorner: bl };
+      const center = centerOf(location);
+      return { data: c.rawValue, location, raw: { x: center.x * scanScale, y: center.y * scanScale } };
+    });
+}
+
 function scanForQRCodes(now) {
+  if (nativeQR) {
+    runNativeQR(now);
+    const fresh = nativeResult && now - nativeResult.t < 250;
+    if (fresh) {
+      const list = nativeDetections();
+      nativeResult.list = []; // use each answer once
+      return list;
+    }
+    return [];
+  }
   sampleCtx.drawImage(video, 0, 0, sampleCanvas.width, sampleCanvas.height);
   const frame = sampleCtx.getImageData(0, 0, sampleCanvas.width, sampleCanvas.height);
   frameCount++;
 
-  const windows = [];
-  // Track codes seen recently.
+  // Track codes seen recently: a snug window first (neighbouring cards
+  // confuse the reader), then a wider one in case the card moved.
+  const tracked = [];
   for (const entry of seen.values()) {
     if (now - entry.lastSeen < VISIBLE_GRACE_MS) {
-      // Window about twice the code's size (or at least the normal tile).
-      const size = Math.min(
-        sampleCanvas.width,
-        sampleCanvas.height,
-        Math.max(Math.round(scanTile * 1.15), Math.round((entry.size || 0) * scanScale * 2.2)),
-      );
-      windows.push({
-        x: clamp(Math.round(entry.raw.x - size / 2), 0, sampleCanvas.width - size),
-        y: clamp(Math.round(entry.raw.y - size / 2), 0, sampleCanvas.height - size),
-        size,
-      });
+      const box = (k, min) => {
+        const size = Math.min(sampleCanvas.width, sampleCanvas.height, Math.max(min, Math.round((entry.size || 0) * scanScale * k)));
+        return {
+          x: clamp(Math.round(entry.raw.x - size / 2), 0, sampleCanvas.width - size),
+          y: clamp(Math.round(entry.raw.y - size / 2), 0, sampleCanvas.height - size),
+          size,
+        };
+      };
+      tracked.push([box(1.5, 80), box(2.2, Math.round(scanTile * 1.15))]);
     }
   }
-  // Plus a slice of the full sweep, to find new codes.
-  const slice = frameCount % SWEEP_FRAMES;
-  sweepTiles.forEach((tile, i) => {
-    if (i % SWEEP_FRAMES === slice) {
-      windows.push(tile);
-    }
-  });
 
   const detections = [];
-  for (const w of windows) {
-    const qrCode = decodeWindow(frame, w);
-    if (qrCode) {
-      detections.push(toVideoCoords(qrCode, w.x, w.y));
+  const t0 = performance.now();
+  // Cards already found: re-check them first (keeps them steady).
+  for (const pair of tracked) {
+    for (const w of pair) {
+      const qrCode = decodeWindow(frame, w);
+      if (qrCode) {
+        detections.push(toVideoCoords(qrCode, w.x, w.y));
+        break;
+      }
     }
+  }
+  // Every other frame, read the whole frame at half size — quick, and
+  // catches a card held close that no tile fully contains.
+  if (frameCount % 2 === 0) {
+    const whole = decodeWhole(frame);
+    if (whole) detections.push(whole);
+  }
+  // Then keep sweeping the tiles for new cards, but only for a few
+  // milliseconds per frame so the picture, hand and map stay smooth; the
+  // sweep carries on where it stopped next frame.
+  const budgetMs = 18;
+  let n = 0;
+  while (n < sweepTiles.length && (n === 0 || performance.now() - t0 < budgetMs)) {
+    const w = sweepTiles[sweepCursor];
+    sweepCursor = (sweepCursor + 1) % sweepTiles.length;
+    n++;
+    const qrCode = decodeWindow(frame, w);
+    if (qrCode) detections.push(toVideoCoords(qrCode, w.x, w.y));
   }
   return dedupeDetections(detections);
 }
 
 // Copies a square window out of the frame (no extra canvas readback) and
 // decodes it.
+let halfCanvas = null;
+let halfCtx = null;
+function decodeWhole() {
+  const w = Math.round(sampleCanvas.width / 2);
+  const h = Math.round(sampleCanvas.height / 2);
+  if (!halfCanvas) {
+    halfCanvas = document.createElement('canvas');
+    halfCtx = halfCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  if (halfCanvas.width !== w || halfCanvas.height !== h) {
+    halfCanvas.width = w;
+    halfCanvas.height = h;
+  }
+  halfCtx.drawImage(sampleCanvas, 0, 0, w, h);
+  const img = halfCtx.getImageData(0, 0, w, h);
+  const qr = jsQR(img.data, w, h, JSQR_OPTIONS);
+  if (!qr) return null;
+  const up = (p) => ({ x: p.x * 2, y: p.y * 2 });
+  const l = qr.location;
+  return toVideoCoords({ data: qr.data, location: { topLeftCorner: up(l.topLeftCorner), topRightCorner: up(l.topRightCorner), bottomRightCorner: up(l.bottomRightCorner), bottomLeftCorner: up(l.bottomLeftCorner) } }, 0, 0);
+}
+
 function decodeWindow(frame, { x, y, size }) {
   const needed = size * size * 4;
   if (tileBuffer.length !== needed) {
