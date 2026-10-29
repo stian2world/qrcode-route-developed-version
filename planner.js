@@ -394,13 +394,19 @@ function layout() {
   const h = window.innerHeight;
   const wide = w >= 1000;
   const phone = w <= 640;
-  const area = { x: 14, y: 72, w: w - 28 - (wide ? 400 : 0), h: h - 86 - (phone ? Math.round(h * 0.4) : 0) };
+  const outer = { x: 10, y: 66, w: w - 20 - (wide ? 400 : 0), h: h - 76 - (phone ? Math.round(h * 0.4) : 0) };
+  // The ArUco corner markers sit just outside Zone 4, so the zones are
+  // inset by one marker on every side.
+  const cell = Math.round(Math.max(phone ? 5 : 6, Math.min(9, Math.min(outer.w, outer.h) * 0.009)));
+  const marker = cell * 8;
+  const gap = 4;
+  const area = { x: outer.x + marker + gap, y: outer.y + marker + gap, w: outer.w - 2 * (marker + gap), h: outer.h - 2 * (marker + gap) };
   const homeW = Math.max(phone ? 90 : 150, area.w * 0.16);
   const homeH = Math.max(phone ? 64 : 96, area.h * 0.14);
   const ix = (area.w - homeW) / 8;
   const iy = (area.h - homeH) / 8;
   const rects = [0, 1, 2, 3, 4].map((k) => ({ x: area.x + k * ix, y: area.y + k * iy, w: area.w - 2 * k * ix, h: area.h - 2 * k * iy }));
-  geometry = { w, h, rects, phone };
+  geometry = { w, h, rects, phone, outer, cell };
 }
 
 function zoneOf(minutes) {
@@ -436,12 +442,11 @@ function render() {
   g.rects.forEach((r, k) => {
     board.append(el('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: k === 4 ? 14 : 4, class: k === 4 ? 'home-box' : 'frame' }));
   });
-  const mk = drawCornerMarkers(g.rects[0], g.phone);
+  drawCornerMarkers(g.outer, g.cell);
   ZONES.forEach((z, idx) => {
     const r = g.rects[3 - idx];
     const prev = idx ? ZONES[idx - 1].max : 0;
-    // Zone 4's label sits next to the top-left marker.
-    board.append(el('text', { x: r.x + 10 + (idx === 3 ? mk : 0), y: r.y + 16, class: 'zone-label' },
+    board.append(el('text', { x: r.x + 10, y: r.y + 16, class: 'zone-label' },
       `ZONE ${idx + 1} · ${z.max === Infinity ? `${prev}+` : `≤${z.max}`} MIN`));
   });
 
@@ -576,15 +581,14 @@ function render() {
 // are the marker's 4×4 inner cells, row by row (1 = white).
 const SCREEN_MARKERS = ['1011010100110010', '0000111110011010', '0011001100101101', '1001100101000110'];
 
-function drawCornerMarkers(r, phone) {
-  const cell = Math.round(Math.max(phone ? 6 : 7, Math.min(11, Math.min(r.w, r.h) * 0.011)));
+// Drawn in the corners of `r` (the box around Zone 4), outside the frame.
+function drawCornerMarkers(r, cell) {
   const size = cell * 8; // 1 white margin + 6 marker cells + 1 white margin
-  const inset = 6;
   const spots = [
-    [r.x + inset, r.y + inset],
-    [r.x + r.w - inset - size, r.y + inset],
-    [r.x + r.w - inset - size, r.y + r.h - inset - size],
-    [r.x + inset, r.y + r.h - inset - size],
+    [r.x, r.y],
+    [r.x + r.w - size, r.y],
+    [r.x + r.w - size, r.y + r.h - size],
+    [r.x, r.y + r.h - size],
   ];
   spots.forEach(([x, y], id) => {
     const grp = el('g', { class: 'aruco', transform: `translate(${x} ${y})`, 'shape-rendering': 'crispEdges' });
@@ -595,7 +599,6 @@ function drawCornerMarkers(r, phone) {
     });
     board.append(grp);
   });
-  return size + 8;
 }
 
 function edgeOf(r, c, p) {
