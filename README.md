@@ -1,93 +1,34 @@
-# tracking
+# NYC Planner
 
-A single-page web app that uses a webcam and [jsQR](https://github.com/cozmo/jsQR) to turn printed QR codes into a physical map of places — connect two of them and it recommends how to travel between them.
+A see-through map of NYC and Jersey City over your webcam. Five printed QR cards fly the map to five areas, your Google Maps saved places show up by category, and the page arranges a day trip from home with real PATH and subway times.
 
-**Live demo:** https://qrcode-tracking-svs.netlify.app
+Open `index.html` (GitHub Pages: https://stian2world.github.io/qrcode-tracking/).
 
-## QR Routes — trip planner
+## How it works
 
-The whole screen is the camera. Home is the box in the middle and **Zones 1–4 are frames around it**; each place sits on the zone it takes to reach *right now*.
+- **Cards and zones:** the small camera picture on the left is split in two. The **dock** is the left 30 % and the **table** is the rest. Slide a card from the dock onto the table and the map flies to its area (the last one slid out wins). A card back in the dock for 2.5 s → whole city again. Untick **Mirror** for a camera that looks down at a table.
 
-| Card (QR text) | |
-| --- | --- |
-| Kimbap | 🥟 Flushing (PATH → N/Q/R/W → 7 train) |
-| Vanila Creme Brulee | 🎭 Times Square |
-| Matcha | 🎨 23rd St (PATH straight there) |
-| yogurt | 🖼️ MoMA |
-| Grapes | 🏛️ The Met |
+  | Card (QR text) | Area |
+  | --- | --- |
+  | Vanila Creme Brulee | Midtown West (Times Square) |
+  | Matcha | Chelsea · Flatiron (SVA) |
+  | yogurt | Midtown East (MoMA) |
+  | Grapes | Upper East Side (The Met) |
+  | Kimbap | Flushing |
 
-Home is always the centre of the map, so every card is a place. Trips are timed from home, leaving now.
-
-1. **Hold up a place card** (or tap it). The panel shows the trip leaving now: when to leave home, the walk, the **PATH train** and the **subway train** you'll catch (e.g. *“Leave by 2:12 PM, PATH at 2:16 PM, then the Q train at 2:38 PM — there at 2:42 PM”*).
-2. From the time you'd be done there it asks about **breakfast / lunch / dinner**.
-3. **No** (or the 🏠 card) → straight home. **Yes** → places to eat nearby: your Google Maps saved places first (⭐), then my notes (`RESTAURANT_NOTES`), then OpenStreetMap. Tap one to see **booking info, how long a meal takes and what it's known for**, then **Eat here**.
-4. The way home: walk to the subway, the train you'll catch, then the PATH and the walk home, with the time you'll be back. Everything is read out loud.
-
-Train times: subway departures are the real MTA schedule (`subway.js`, extracted from the GTFS zip with `tools/extract_subway_legs.py`); PATH toward NYC is the timetable from the PATH app; PATH toward home is estimated until its timetable is added. Walks are estimates. Restaurant notes are hand-checked but may go out of date — check before you go.
-
-### Where the times come from
-
-No API key needed. `PRESET_ROUTES` in `config.js` holds door-to-door times looked up in Google Maps and the PATH app. For Home ↔ SVA the pop-up shows the **next PATH train from the current time** (from `TIMETABLES`), e.g. *🚇 Next PATH 9:52 PM · in 9 min*, reads it out, and adds the wait to the trip time. After the last train it says there are no more trains tonight and gives tomorrow's first train. The 23rd St → Grove St timetable is still a copy of the other direction and is marked *(est.)* until the real times are added. Pairs or modes that aren't filled in are rough guesses from distance and are marked *est.*
-
-### Google Maps API key (optional)
-
-With a key, live routes from the [Google Routes API](https://developers.google.com/maps/documentation/routes/overview) replace the preset times.
-
-1. In Google Cloud Console, create a key and enable **Routes API**.
-2. Restrict the key to your site URLs (HTTP referrers) — it's visible in the browser.
-3. Open the app once as `https://…/?key=YOUR_KEY`. The key is remembered in that browser and removed from the address bar, so it never needs to be committed.
-
-### Import from Google Maps
-
-Google has no API for saved places, so export them once with [Google Takeout](https://takeout.google.com): select **Maps (your places)** *and* **Saved**, export, then tap ⬇️ and choose the zip. Starred places, saved lists (Want to go, Favorites, your own lists) and your reviews are imported and show up first in the neighbourhood they're in; places outside North NJ / NYC are skipped. Places without coordinates are located with Mapbox (`MAPBOX_TOKEN` in `config.js`) or, without a token, OpenStreetMap.
-
-Imported places and check-ins are stored **only in that browser** (localStorage) — they never go into this public repo. Import on the device you'll demo with.
-
-## Phone and laptop
-
-The layout adapts to the screen (tested at iPhone 12 Pro size, portrait and landscape, and on a laptop):
-
-- the whole camera picture is always shown (never cropped), and labels are drawn in screen pixels so they stay readable;
-- the top bar (✨ preference — tap it to switch — and 🔄 camera flip) stays clear of the iPhone notch;
-- every button is at least 44 × 44 px;
-- the route pop-up is a card on the top-right on a laptop, a sheet along the bottom on a phone in portrait, and a side panel on a phone held sideways.
-
-## Running locally
-
-```bash
-npx serve .
-```
-
-Then open the printed URL and grant camera access. No build step — it's vanilla JS/HTML/CSS.
-
-## Deploying
-
-```bash
-npx netlify-cli deploy --prod --dir=.
-```
+- **Saved places:** ⬇️ Import takes a Google Takeout .zip (tick "Saved") or a places .json. Places stay in this browser only (localStorage). They're grouped into Food, Café & Dessert, Market, Park, Shopping and Other; the list under the map shows the places inside the current area.
+- **Plan my day:** ◯ Circle places on the map (or tap +), then ✨ Arrange my day. Every order is tried (up to 7 stops) and the one with the least travelling wins, nudged so restaurants land at lunch (11:30–2) or dinner (5:30–8:30) and cafés in the afternoon. Real PATH timetable; for stops inside a card area, the real home ↔ area route (PATH + MTA schedule). Hops between places are estimates (walk under 20 min, else ~10 min + 3 min a mile), marked "est.". Set "Leave at", or leave it empty to leave now. Drag a stop to use your own order.
+- **Look:** the camera is the page background (dimmed); the map is see-through with white shorelines. ArUco-free, single page, vanilla JS. MapLibre GL draws the map; streets and names come from OpenFreeMap when online.
 
 ## Files
 
-- `index.html` — page shell, loads the webcam video element and jsQR from a CDN
-- `landmarks.js` — zones, default landmarks, PATH stations
-- `zones.js` — trips from home, Google Maps import, check-ins
-- `planner.js` — zone frames, the five cards, trip + meal + way home
-- `plans.js` — keep a plan: ⭐ save (reopen later), 🖼 image, 📅 calendar (.ics)
-- Screen corner markers: the Zone 4 frame shows ArUco markers 0–3 (DICT_4X4) in its corners so another camera / program can locate the screen (`drawCornerMarkers` in planner.js)
-- `corners.js` — optional play area: four ArUco markers (DICT_4X4, ids 0–3, printed on page 2 of poster.html) at the corners of the table; only cards inside count
-- `hands.js` — hand control: fingertip pointer, pinch / hold-still to tap (MediaPipe)
-- `subway.js` — subway departures for the four trips (MTA GTFS)
-- `poster.html` — printable QR cards
-- `config.js` — QR → place mapping, addresses, API key, cost/CO₂ estimates
-- `script.js` — QR detection, routing, pop-up and voice. Detection scans a downscaled frame, re-checks known codes in a small window every frame, and spreads the full search for new codes over 3 frames (about 4× faster than scanning every tile every frame).
-- `style.css` — minimal layout for the fullscreen video + canvas overlay
-
-## Hand control ✋ and places to eat
-
-- Hold up a place card (e.g. **Grapes → The Met**). The trip appears.
-- **Point** at the place on the map with your index finger. A white ring follows your fingertip.
-- **Pinch** (thumb + index) or **hold still** for about a second to tap it. Places to eat spread out around it.
-- Point at a restaurant and pinch to open its card. It shows the price per person (approx.), the distance and walk time, whether you need to book, how long a meal takes, and the signature dishes. Pinch **Eat here** to get the way home.
-- Mouse / touch tapping still works. The ✋ button turns hand control on and off.
-- Hand tracking uses MediaPipe Hand Landmarker in the browser. Nothing is uploaded.
-- Restaurant notes (price, dishes, booking) live in `RESTAURANT_NOTES` in `landmarks.js`.
+- `index.html` — the page
+- `config.js` — QR card → area, PATH timetables
+- `map/map-geo.js` — shorelines (NYC DCP boroughs + US Census ZCTAs for NJ), the five areas, home (Grove St)
+- `map/routes.js` — real routes from home to the five areas
+- `subway.js` — MTA departures for those routes (from the static GTFS; rebuild with `tools/extract_subway_legs.py`)
+- `map/map-qr.js` — camera, reading the cards, dock / table
+- `map/map-app.js` — map, markers, list by category, plan list
+- `map/map-day.js` — arranging and timing the day, circling places
+- `map/map-import.js` — Takeout / .json import
+- `map/map.css` — styles
